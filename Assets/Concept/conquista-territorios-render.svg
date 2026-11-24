@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#f8f4e9"/><stop offset="1" stop-color="#e9f0e5"/></linearGradient>
+    <linearGradient id="sea" x2="0" y2="1"><stop stop-color="#bfe4e2"/><stop offset="1" stop-color="#a2d1d4"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#23373b" flood-opacity=".16"/></filter>
+    <pattern id="waterlines" width="44" height="22" patternUnits="userSpaceOnUse"><path d="M0 10 Q11 3 22 10 T44 10" fill="none" stroke="#ffffff" stroke-opacity=".28" stroke-width="2"/></pattern>
+    <clipPath id="mapClip"><rect x="36" y="198" width="1088" height="730" rx="30"/></clipPath>
+    <g id="hex"><path d="M0-82 L71-41 L71 41 L0 82 L-71 41 L-71-41 Z"/></g>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <rect width="1600" height="150" fill="#fffdf7"/>
+  <path d="M0 149H1600" stroke="#e1dfd2" stroke-width="2"/>
+  <text x="48" y="62" font-family="Arial,sans-serif" font-weight="900" font-size="28" fill="#203638" letter-spacing="2">ISLAS EN DISPUTA</text>
+  <text x="50" y="96" font-family="Arial,sans-serif" font-size="17" fill="#718184">Conquista · produce · expande</text>
+  <g filter="url(#shadow)">
+    <rect x="388" y="24" width="770" height="100" rx="24" fill="#fff"/>
+    <rect x="388" y="24" width="10" height="100" rx="5" fill="#3478d4"/>
+    <circle cx="436" cy="74" r="25" fill="#e5efff"/><text x="436" y="83" text-anchor="middle" font-family="Arial" font-size="26">🔵</text>
+    <text x="475" y="62" font-family="Arial" font-size="17" font-weight="700" fill="#334448">ESTIR · Tu imperio</text>
+    <text x="475" y="94" font-family="Arial" font-size="15" fill="#718184">3 territorios</text>
+    <g font-family="Arial" font-size="17" font-weight="700" text-anchor="middle">
+      <rect x="638" y="45" width="104" height="56" rx="15" fill="#fff3d4"/><text x="664" y="81" font-size="23">🪙</text><text x="710" y="80" fill="#66501f">12</text>
+      <rect x="754" y="45" width="104" height="56" rx="15" fill="#e9f4df"/><text x="780" y="81" font-size="23">🌾</text><text x="827" y="80" fill="#46613c">6</text>
+      <rect x="870" y="45" width="104" height="56" rx="15" fill="#e8eef0"/><text x="896" y="81" font-size="23">🪵</text><text x="943" y="80" fill="#48595e">4</text>
+      <rect x="986" y="45" width="145" height="56" rx="15" fill="#e8eaff"/><text x="1014" y="81" font-size="23">⚔️</text><text x="1071" y="80" fill="#414b83">5 tropas</text>
+    </g>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="1180" y="24" width="372" height="100" rx="24" fill="#fff"/>
+    <rect x="1542" y="24" width="10" height="100" rx="5" fill="#e25c50"/>
+    <circle cx="1228" cy="74" r="25" fill="#ffebe8"/><text x="1228" y="83" text-anchor="middle" font-family="Arial" font-size="26">🔴</text>
+    <text x="1268" y="62" font-family="Arial" font-size="17" font-weight="700" fill="#334448">RIVAL · Oponente</text>
+    <text x="1268" y="94" font-family="Arial" font-size="15" fill="#718184">2 territorios · 4 tropas</text>
+  </g>
+
+  <g filter="url(#shadow)"><rect x="36" y="174" width="1088" height="754" rx="30" fill="url(#sea)"/></g>
+  <g clip-path="url(#mapClip)">
+    <rect x="36" y="198" width="1088" height="730" fill="url(#waterlines)"/>
+    <path d="M110 455 Q155 350 265 343 Q350 290 436 334 Q513 284 583 336 Q688 290 778 356 Q888 336 960 422 Q1033 516 979 608 Q1025 720 907 779 Q812 840 713 782 Q605 843 513 781 Q400 835 309 773 Q190 797 131 703 Q77 604 110 455Z" fill="#78b990" stroke="#f6fbef" stroke-width="12"/>
+    <path d="M166 502 Q234 422 319 451 M431 376 Q488 414 534 467 M603 370 Q647 426 680 465 M811 400 Q861 456 899 503 M255 663 Q324 617 390 646 M548 732 Q612 678 675 708 M803 727 Q853 674 911 654" fill="none" stroke="#eadab0" stroke-width="15" stroke-linecap="round" opacity=".9"/>
+    <path d="M204 389 Q254 364 302 394 Q324 427 300 454 Q247 468 209 441Z" fill="#79b1da" stroke="#e5f5f6" stroke-width="7"/>
+    <path d="M856 483 Q903 464 939 496 Q948 533 916 552 Q870 553 849 523Z" fill="#79b1da" stroke="#e5f5f6" stroke-width="7"/>
+    <path d="M470 337 Q503 310 526 339" fill="none" stroke="#f7ffff" stroke-width="5" opacity=".75"/>
+  </g>
+
+  <!-- Connecting routes -->
+  <g stroke="#f4e9ca" stroke-width="10" stroke-linecap="round" opacity=".95">
+    <path d="M240 445L360 493L484 434L625 478L778 420L907 500"/><path d="M360 493L337 635L485 694L625 592L778 678L907 500"/><path d="M484 434L625 592L625 478"/><path d="M625 592L778 420"/>
+  </g>
+  <g stroke="#8caa8c" stroke-width="2" fill="none" opacity=".8">
+    <path d="M240 445L360 493L484 434L625 478L778 420L907 500"/><path d="M360 493L337 635L485 694L625 592L778 678L907 500"/><path d="M484 434L625 592L625 478"/><path d="M625 592L778 420"/>
+  </g>
+
+  <!-- Territory tokens -->
+  <g font-family="Arial,sans-serif" text-anchor="middle" filter="url(#shadow)">
+    <!-- blue-owned farm -->
+    <g transform="translate(240 445)"><use href="#hex" fill="#f0d88d" stroke="#3478d4" stroke-width="8"/><circle cy="-39" r="22" fill="#fff7df"/><text y="-31" font-size="22">🌾</text><text y="7" font-size="17" font-weight="800" fill="#354342">HUERTO</text><text y="33" font-size="14" fill="#62716a">+2 comida</text><circle cx="48" cy="-52" r="18" fill="#3478d4" stroke="#fff" stroke-width="4"/><text x="48" y="-46" font-size="14" font-weight="800" fill="#fff">TÚ</text></g>
+    <!-- free mine -->
+    <g transform="translate(360 493)"><use href="#hex" fill="#c8d3cb" stroke="#f5f9f1" stroke-width="7"/><circle cy="-39" r="22" fill="#edf1ec"/><text y="-31" font-size="22">⛏️</text><text y="7" font-size="17" font-weight="800" fill="#354342">MINA</text><text y="33" font-size="14" fill="#62716a">Coste 5 🪙</text></g>
+    <!-- blue factory -->
+    <g transform="translate(484 434)"><use href="#hex" fill="#b9c9cb" stroke="#3478d4" stroke-width="8"/><circle cy="-39" r="22" fill="#eef4f4"/><text y="-31" font-size="22">🏭</text><text y="7" font-size="17" font-weight="800" fill="#354342">FÁBRICA</text><text y="33" font-size="14" fill="#62716a">+2 madera</text><circle cx="48" cy="-52" r="18" fill="#3478d4" stroke="#fff" stroke-width="4"/><text x="48" y="-46" font-size="14" font-weight="800" fill="#fff">TÚ</text></g>
+    <!-- free land -->
+    <g transform="translate(625 478)"><use href="#hex" fill="#98c98b" stroke="#f5f9f1" stroke-width="7"/><circle cy="-39" r="22" fill="#eff9e9"/><text y="-31" font-size="22">🌳</text><text y="7" font-size="17" font-weight="800" fill="#354342">BOSQUE</text><text y="33" font-size="14" fill="#62716a">Coste 4 🪙</text></g>
+    <!-- red opponent barracks -->
+    <g transform="translate(778 420)"><use href="#hex" fill="#d59a8e" stroke="#e25c50" stroke-width="8"/><circle cy="-39" r="22" fill="#fff0eb"/><text y="-31" font-size="22">🛡️</text><text y="7" font-size="17" font-weight="800" fill="#354342">CUARTEL</text><text y="33" font-size="14" fill="#62716a">+1 tropa</text><circle cx="48" cy="-52" r="18" fill="#e25c50" stroke="#fff" stroke-width="4"/><text x="48" y="-46" font-size="14" font-weight="800" fill="#fff">R</text></g>
+    <!-- red-owned orchard -->
+    <g transform="translate(907 500)"><use href="#hex" fill="#f0d88d" stroke="#e25c50" stroke-width="8"/><circle cy="-39" r="22" fill="#fff7df"/><text y="-31" font-size="22">🌻</text><text y="7" font-size="17" font-weight="800" fill="#354342">HUERTO</text><text y="33" font-size="14" fill="#62716a">+2 comida</text><circle cx="48" cy="-52" r="18" fill="#e25c50" stroke="#fff" stroke-width="4"/><text x="48" y="-46" font-size="14" font-weight="800" fill="#fff">R</text></g>
+    <!-- lower hexes -->
+    <g transform="translate(337 635)"><use href="#hex" fill="#b9c9cb" stroke="#f5f9f1" stroke-width="7"/><circle cy="-39" r="22" fill="#eef4f4"/><text y="-31" font-size="22">🏭</text><text y="7" font-size="17" font-weight="800" fill="#354342">FÁBRICA</text><text y="33" font-size="14" fill="#62716a">Libre</text></g>
+    <g transform="translate(485 694)"><use href="#hex" fill="#c8d3cb" stroke="#f5f9f1" stroke-width="7"/><circle cy="-39" r="22" fill="#edf1ec"/><text y="-31" font-size="22">⛏️</text><text y="7" font-size="17" font-weight="800" fill="#354342">MINA</text><text y="33" font-size="14" fill="#62716a">Libre</text></g>
+    <g transform="translate(625 592)"><use href="#hex" fill="#e5c67b" stroke="#e25c50" stroke-width="8"/><circle cy="-39" r="22" fill="#fff5d9"/><text y="-31" font-size="22">🪙</text><text y="7" font-size="17" font-weight="800" fill="#354342">MERCADO</text><text y="33" font-size="14" fill="#62716a">+3 monedas</text><circle cx="48" cy="-52" r="18" fill="#e25c50" stroke="#fff" stroke-width="4"/><text x="48" y="-46" font-size="14" font-weight="800" fill="#fff">R</text></g>
+    <g transform="translate(778 678)"><use href="#hex" fill="#98c98b" stroke="#3478d4" stroke-width="8"/><circle cy="-39" r="22" fill="#eff9e9"/><text y="-31" font-size="22">🌳</text><text y="7" font-size="17" font-weight="800" fill="#354342">BOSQUE</text><text y="33" font-size="14" fill="#62716a">+2 madera</text><circle cx="48" cy="-52" r="18" fill="#3478d4" stroke="#fff" stroke-width="4"/><text x="48" y="-46" font-size="14" font-weight="800" fill="#fff">TÚ</text></g>
+    <g transform="translate(907 654)"><use href="#hex" fill="#c8d3cb" stroke="#f5f9f1" stroke-width="7"/><circle cy="-39" r="22" fill="#edf1ec"/><text y="-31" font-size="22">⛏️</text><text y="7" font-size="17" font-weight="800" fill="#354342">MINA</text><text y="33" font-size="14" fill="#62716a">Libre</text></g>
+  </g>
+  <g font-family="Arial" font-size="15" font-weight="700" fill="#527375"><text x="78" y="876">MAPA DE 12 TERRITORIOS</text><text x="900" y="876" text-anchor="end">PRODUCCIÓN AL INICIO DEL TURNO</text></g>
+
+  <!-- right action panel -->
+  <g filter="url(#shadow)"><rect x="1150" y="174" width="402" height="754" rx="30" fill="#fffdf7"/></g>
+  <text x="1182" y="226" font-family="Arial" font-size="16" font-weight="800" fill="#76868a" letter-spacing="1.5">TU TURNO · RONDA 6</text>
+  <text x="1182" y="272" font-family="Arial" font-size="26" font-weight="900" fill="#203638">¿Qué quieres hacer?</text>
+  <rect x="1180" y="300" width="342" height="82" rx="19" fill="#eff5e9"/>
+  <circle cx="1222" cy="341" r="24" fill="#fff"/><text x="1222" y="350" text-anchor="middle" font-family="Arial" font-size="23">🎲</text>
+  <text x="1260" y="335" font-family="Arial" font-size="16" font-weight="800" fill="#34464a">Tira los dados</text><text x="1260" y="359" font-family="Arial" font-size="14" fill="#738186">Las zonas producen recursos</text>
+  <g transform="translate(1182 405)"><rect width="80" height="74" rx="18" fill="#f5f2e8"/><rect x="11" y="11" width="58" height="52" rx="13" fill="#fff"/><circle cx="29" cy="29" r="5" fill="#41555a"/><circle cx="51" cy="47" r="5" fill="#41555a"/><text x="40" y="96" text-anchor="middle" font-family="Arial" font-size="13" fill="#758589">DADO 1</text></g>
+  <g transform="translate(1282 405)"><rect width="80" height="74" rx="18" fill="#f5f2e8"/><rect x="11" y="11" width="58" height="52" rx="13" fill="#fff"/><circle cx="26" cy="26" r="5" fill="#41555a"/><circle cx="54" cy="26" r="5" fill="#41555a"/><circle cx="40" cy="37" r="5" fill="#41555a"/><circle cx="26" cy="49" r="5" fill="#41555a"/><circle cx="54" cy="49" r="5" fill="#41555a"/><text x="40" y="96" text-anchor="middle" font-family="Arial" font-size="13" fill="#758589">DADO 2</text></g>
+  <rect x="1182" y="527" width="340" height="106" rx="19" fill="#eff4ff" stroke="#d5e3fa" stroke-width="2"/>
+  <text x="1204" y="558" font-family="Arial" font-size="15" font-weight="800" fill="#3d6ca9">ZONAS ACTIVADAS</text>
+  <text x="1204" y="590" font-family="Arial" font-size="15" fill="#52666c">Tu fábrica: +2 madera</text><text x="1204" y="614" font-family="Arial" font-size="15" fill="#52666c">Tu huerto: +2 comida</text>
+  <rect x="1182" y="654" width="340" height="92" rx="19" fill="#fff5dc"/>
+  <text x="1204" y="687" font-family="Arial" font-size="15" font-weight="800" fill="#907132">TERRITORIO SELECCIONADO</text>
+  <text x="1204" y="719" font-family="Arial" font-size="21" font-weight="900" fill="#374447">Mina libre</text><text x="1494" y="719" text-anchor="end" font-family="Arial" font-size="15" fill="#69787b">5 🪙</text>
+  <rect x="1182" y="770" width="340" height="64" rx="19" fill="#3478d4"/>
+  <text x="1352" y="810" text-anchor="middle" font-family="Arial" font-size="19" font-weight="900" fill="#fff">COMPRAR TERRITORIO</text>
+  <text x="1352" y="871" text-anchor="middle" font-family="Arial" font-size="14" fill="#819095">Cada zona propia produce para ti.</text>
+  <rect x="1110" y="897" width="474" height="76" rx="24" fill="#203638" filter="url(#shadow)"/>
+  <text x="1140" y="927" font-family="Arial" font-size="14" font-weight="700" fill="#b9d7d1">PROGRESO PARA GANAR</text>
+  <text x="1140" y="954" font-family="Arial" font-size="17" font-weight="900" fill="#fff">Controla 8 de las 12 zonas</text>
+  <text x="1540" y="949" text-anchor="end" font-family="Arial" font-size="25">🏁</text>
+</svg>
