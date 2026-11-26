@@ -10,7 +10,7 @@ namespace AuteTurno.Conquest
     [Serializable]
     public sealed class Territory
     {
-        public int X, Y, Owner = -1, Troops, ProductionNumber, Level;
+        public int X, Y, Owner = -1, Troops, ProductionNumber, Level, AttackReadyTurn;
         public LandType Land;
         public bool HasBuilding;
         public bool IsCapital => Land == LandType.Capital;
@@ -28,7 +28,7 @@ namespace AuteTurno.Conquest
     [Serializable]
     public sealed class RemotePlayerState { public string name; public int gold, food, materials; }
     [Serializable]
-    public sealed class RemoteTerritoryState { public int x, y, owner, troops, productionNumber, level; public string land; public bool hasBuilding; }
+    public sealed class RemoteTerritoryState { public int x, y, owner, troops, productionNumber, level, attackReadyTurn; public string land; public bool hasBuilding; }
     [Serializable]
     public sealed class RemoteGameState
     {
@@ -51,6 +51,7 @@ namespace AuteTurno.Conquest
     public sealed class ConquestGame
     {
         public const int Width = 5, Height = 4, MaxTurns = 60;
+        public const int MaxLevel = 3;
         public readonly Territory[,] Board = new Territory[Width, Height];
         public readonly ConquestPlayer[] Players = { new ConquestPlayer("Jugador azul"), new ConquestPlayer("Jugador rojo") };
         public int ActivePlayer { get; private set; }
@@ -64,35 +65,69 @@ namespace AuteTurno.Conquest
         public int Winner { get; private set; } = -1;
         public string Message { get; private set; } = "Conquista zonas y construye tu economía.";
 
-        private static readonly LandType[] Specialties = { LandType.Farm, LandType.Factory, LandType.Mine, LandType.Barracks };
-        private static readonly int[] ProductionNumbers = { 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 4, 5, 6, 8, 9, 3, 10, 5, 6, 8 };
+        private static readonly LandType[] EconomicSites = { LandType.Farm, LandType.Factory, LandType.Mine };
 
         public ConquestGame(int seed = -1)
         {
             if (seed >= 0) UnityEngine.Random.InitState(seed);
-            int numberIndex = 0;
-            int[] numbers = (int[])ProductionNumbers.Clone();
-            for (int i = numbers.Length - 1; i > 0; i--)
-            { int j = UnityEngine.Random.Range(0, i + 1); int swap = numbers[i]; numbers[i] = numbers[j]; numbers[j] = swap; }
+            Board[0, 1] = new Territory(0, 1, LandType.Capital) { Owner = 0, Troops = 4, HasBuilding = true, Level = 2 };
+            Board[Width - 1, Height - 2] = new Territory(Width - 1, Height - 2, LandType.Capital) { Owner = 1, Troops = 4, HasBuilding = true, Level = 2 };
+            var sites = new List<Territory>();
             for (int x = 0; x < Width; x++)
             for (int y = 0; y < Height; y++)
             {
-                LandType land = Specialties[UnityEngine.Random.Range(0, Specialties.Length)];
-                Board[x, y] = new Territory(x, y, land) { ProductionNumber = numbers[numberIndex++] };
+                if (Board[x, y] != null) continue;
+                Board[x, y] = new Territory(x, y, LandType.Barracks);
+                sites.Add(Board[x, y]);
             }
-            Board[0, 1] = new Territory(0, 1, LandType.Capital) { Owner = 0, Troops = 4, HasBuilding = true, Level = 2 };
-            Board[Width - 1, Height - 2] = new Territory(Width - 1, Height - 2, LandType.Capital) { Owner = 1, Troops = 4, HasBuilding = true, Level = 2 };
+            Shuffle(sites);
+            var blueCapital = Board[0, 1];
+            var redCapital = Board[Width - 1, Height - 2];
+            var blueCamp = sites.Find(z => IsAdjacent(z, blueCapital));
+            var redCamp = Board[Width - 1 - blueCamp.X, Height - 1 - blueCamp.Y];
+            blueCamp.ProductionNumber = UnityEngine.Random.Range(0, 2) == 0 ? 5 : 9;
+            redCamp.ProductionNumber = 14 - blueCamp.ProductionNumber;
+            sites.Remove(blueCamp);
+            sites.Remove(redCamp);
+            // One 5 and one 9 belong to the two starting camps.
+            var numbers = new List<int> { 2, 3, 3, 4, 4, 5, 6, 6, 8, 8, 9, 10, 10, 11, 11, 12 };
+            Shuffle(numbers);
+            int inlandCamps = 0, economicSites = 0;
+            for (int i = 0; i < sites.Count; i++)
+            {
+                var z = sites[i];
+                z.ProductionNumber = numbers[i];
+                if (inlandCamps < 4 && !IsAdjacent(z, blueCapital) && !IsAdjacent(z, redCapital)) inlandCamps++;
+                else z.Land = EconomicSites[economicSites++ % EconomicSites.Length];
+            }
             ActivePlayer = UnityEngine.Random.Range(0, 2);
             AwaitingRoll = true;
             Message = Players[ActivePlayer].Name + " empieza. Lanza los dados para activar la producción.";
         }
 
+        private static void Shuffle<T>(List<T> items)
+        {
+            for (int i = items.Count - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                T item = items[i]; items[i] = items[j]; items[j] = item;
+            }
+        }
+
+        public static int Production(LandType land, int level)
+        {
+            if (level < 1 || land == LandType.Plain || land == LandType.Capital) return 0;
+            return (land == LandType.Mine ? 3 : 2) + Mathf.Min(level, MaxLevel) - 1;
+        }
+
+        public static int UpgradeGold(int level) => level == 1 ? 5 : 7;
+        public static int UpgradeMaterials(int level) => level == 1 ? 2 : 3;
+
         public bool RollForTurn()
         {
             if (Finished || !AwaitingRoll) return false;
             AwaitingRoll = false;
-            BeginTurn();
-            Message = "Turno de " + Players[ActivePlayer].Name + ". " + TurnDiceMessage();
+            Message = BeginTurn();
             return true;
         }
 
@@ -117,11 +152,13 @@ namespace AuteTurno.Conquest
 
         public bool Build(Territory zone)
         {
-            if (!CanAct(zone, ActivePlayer) || zone.HasBuilding || zone.IsCapital) return Fail("Elige una zona propia libre para construir.");
+            if (!CanAct(zone, ActivePlayer) || zone.IsCapital || zone.Level < 1 || zone.Level >= MaxLevel)
+                return Fail("Elige un territorio propio de nivel 1 o 2 para mejorarlo.");
             ConquestPlayer p = Players[ActivePlayer];
-            if (p.Gold < 5 || p.Materials < 2) return Fail("Construir cuesta 5 monedas y 2 materiales.");
-            p.Gold -= 5; p.Materials -= 2; zone.HasBuilding = true; zone.Level = 2;
-            return Spend("Territorio desarrollado a nivel 2: ahora produce recursos al coincidir los dados.");
+            int gold = UpgradeGold(zone.Level), materials = UpgradeMaterials(zone.Level);
+            if (p.Gold < gold || p.Materials < materials) return Fail("Mejorar cuesta " + gold + " de oro y " + materials + " materiales.");
+            p.Gold -= gold; p.Materials -= materials; zone.HasBuilding = true; zone.Level++;
+            return Spend("Territorio mejorado a nivel " + zone.Level + ".");
         }
 
         public bool PurchaseTerritory(Territory from, Territory to)
@@ -131,6 +168,7 @@ namespace AuteTurno.Conquest
             ConquestPlayer p = Players[ActivePlayer];
             if (p.Gold < 5) return Fail("Comprar una zona cuesta 5 monedas.");
             p.Gold -= 5; to.Owner = ActivePlayer; to.Troops = 1; to.Level = 1;
+            to.AttackReadyTurn = CompletedTurns + 2;
             return Spend("Territorio comprado: nivel 1.");
         }
 
@@ -146,6 +184,8 @@ namespace AuteTurno.Conquest
 
         public bool Attack(Territory from, Territory to)
         {
+            if (from != null && from.Owner == ActivePlayer && from.AttackReadyTurn > CompletedTurns)
+                return Fail("Este territorio podrá atacar en tu próximo turno.");
             if (!CanAct(from, ActivePlayer) || to == null || !IsAdjacent(from, to) || to.Owner == ActivePlayer || from.Troops < 2)
                 return Fail("Ataca una zona vecina neutral o rival con al menos 2 tropas.");
             int attackingTroops = from.Troops;
@@ -158,6 +198,7 @@ namespace AuteTurno.Conquest
             {
                 int oldOwner = to.Owner;
                 to.Owner = ActivePlayer;
+                to.AttackReadyTurn = CompletedTurns + 2;
                 to.Level = Mathf.Max(1, to.Level);
                 to.Troops = Mathf.Max(1, from.Troops - 1);
                 from.Troops = 1;
@@ -190,31 +231,14 @@ namespace AuteTurno.Conquest
             }
         }
 
-        public string ProductionSummary(int player)
+        private static string ProductionSummary(int gold, int food, int materials, int troops)
         {
-            if (DiceTotal == 7) return "ningún edificio produce con 7";
-            int gold = 0, food = 0, materials = 0, troops = 0;
-            foreach (Territory zone in Board)
-            {
-                if (zone.Owner != player || !zone.HasBuilding || zone.IsCapital || zone.ProductionNumber != DiceTotal || DiceTotal == 7) continue;
-                if (zone.Land == LandType.Mine) gold += 3;
-                if (zone.Land == LandType.Farm) food += 2;
-                if (zone.Land == LandType.Factory) materials += 2;
-                if (zone.Land == LandType.Barracks) troops++;
-            }
             var produced = new List<string>();
             if (gold > 0) produced.Add("+" + gold + " oro");
             if (food > 0) produced.Add("+" + food + " comida");
             if (materials > 0) produced.Add("+" + materials + " materiales");
             if (troops > 0) produced.Add("+" + troops + " tropas");
             return produced.Count == 0 ? "sin producción" : string.Join(" · ", produced);
-        }
-
-        private string TurnDiceMessage()
-        {
-            return DiceTotal == 7
-                ? "Salió 7 (" + DiceOne + "+" + DiceTwo + "): ningún edificio produce."
-                : "Salió " + DiceTotal + " (" + DiceOne + "+" + DiceTwo + "). Producción · J1: " + ProductionSummary(0) + " · J2: " + ProductionSummary(1) + ".";
         }
 
         public int CountTerritories(int player)
@@ -246,8 +270,8 @@ namespace AuteTurno.Conquest
                     LandType land;
                     if (!Enum.TryParse(remote.land, true, out land)) land = LandType.Plain;
                     Board[remote.x, remote.y] = new Territory(remote.x, remote.y, land)
-                    { Owner = remote.owner, Troops = remote.troops, HasBuilding = remote.hasBuilding,
-                        ProductionNumber = remote.productionNumber, Level = remote.level >= 0 ? remote.level : remote.owner < 0 ? 0 : remote.hasBuilding ? 2 : 1 };
+                    { Owner = remote.owner, Troops = remote.troops, HasBuilding = remote.hasBuilding, AttackReadyTurn = remote.attackReadyTurn,
+                        ProductionNumber = remote.productionNumber, Level = remote.level > 0 ? remote.level : remote.owner < 0 ? 0 : remote.hasBuilding ? 2 : 1 };
                 }
             ActivePlayer = state.activePlayer; ActionsLeft = state.actionsLeft; CompletedTurns = state.completedTurns;
             DiceOne = state.diceOne; DiceTwo = state.diceTwo;
@@ -263,19 +287,31 @@ namespace AuteTurno.Conquest
             Message = message;
             return true;
         }
-        private void BeginTurn()
+        private string BeginTurn()
         {
             ActionsLeft = 1;
             DiceOne = UnityEngine.Random.Range(1, 7); DiceTwo = UnityEngine.Random.Range(1, 7);
+            int[] garrison = new int[2];
+            int[] gold = { Players[0].Gold, Players[1].Gold }, food = { Players[0].Food, Players[1].Food };
+            int[] materials = { Players[0].Materials, Players[1].Materials };
             foreach (Territory z in Board)
             {
-                if (z.Owner < 0 || !z.HasBuilding || z.IsCapital || z.ProductionNumber != DiceTotal || DiceTotal == 7) continue;
+                if (z.Owner < 0) continue;
+                if (z.IsCapital) { if (z.Owner == ActivePlayer) z.Troops++; continue; }
+                if (z.ProductionNumber != DiceTotal || DiceTotal == 7) continue;
+                int amount = Production(z.Land, z.Level);
                 ConquestPlayer owner = Players[z.Owner];
-                if (z.Land == LandType.Mine) owner.Gold += 3;
-                else if (z.Land == LandType.Farm) owner.Food += 2;
-                else if (z.Land == LandType.Factory) owner.Materials += 2;
-                else if (z.Land == LandType.Barracks) z.Troops++;
+                if (z.Land == LandType.Mine) owner.Gold += amount;
+                else if (z.Land == LandType.Farm) owner.Food += amount;
+                else if (z.Land == LandType.Factory) owner.Materials += amount;
+                else if (z.Land == LandType.Barracks) { z.Troops += amount; garrison[z.Owner] += amount; }
             }
+            string reinforcement = "Tirada " + DiceTotal + " · Capital J" + (ActivePlayer + 1) + " +1 tropa.";
+            if (DiceTotal == 7) return reinforcement + " Los terrenos descansan.";
+            var summaries = new string[2];
+            for (int i = 0; i < Players.Length; i++)
+                summaries[i] = ProductionSummary(Players[i].Gold - gold[i], Players[i].Food - food[i], Players[i].Materials - materials[i], garrison[i]);
+            return reinforcement + " Terrenos J1: " + summaries[0] + " · J2: " + summaries[1] + ".";
         }
         private void ResolveScore()
         {

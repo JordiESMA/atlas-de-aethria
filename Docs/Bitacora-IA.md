@@ -88,3 +88,23 @@ La petición de acercar el juego al render llevó a una vista ilustrada en persp
 La portada explica los turnos. Al elegir nombres, cada jugador ve su capital, su escudo y su reino. En el tablero, la cartela de marfil indica producción, el escudo N1 o N2 indica nivel y la ficha T indica tropas. La pantalla de resultado muestra los nombres, los territorios y la puntuación de ambos jugadores.
 
 La revisión visual utiliza el mismo código de dibujo de la entrega. En el ejecutable de revisión, una secuencia local selecciona origen y destino, compra una casilla, construye su edificio y llega al resultado por puntuación. Para revisar la espera de la sala se usa un estado de ejemplo. Las capturas de esta revisión no certifican una conexión entre dos equipos.
+
+## Revisión de cuarteles, capitales y producción · 1.1.0
+
+Se pidió a Codex aumentar la presencia de cuarteles, reforzar la capital de quien tira y relacionar el nivel de cada territorio con su rendimiento. La revisión encontró dos comportamientos que la interfaz anterior ocultaba. Un terreno propio de nivel 1 todavía no producía y el servidor podía dejar en nivel 0 una casilla neutral conquistada por combate.
+
+- Cada mapa contiene 6 cuarteles, 4 minas, 4 huertos, 4 fábricas y 2 capitales. Se reserva una casilla vecina de cada capital para un cuartel neutral. Las ubicaciones y los números varían.
+- La capital de quien tira gana 1 tropa, también con un 7. El cuartel da 2, 3 o 4 tropas en su propia casilla según el nivel. La mejora lineal permite leer el beneficio antes de gastar. Se eligió un máximo de tres niveles y un coste de 7 de oro y 3 materiales para la última mejora.
+- Se verificaron 100 mapas y 6.000 tiradas en Unity, y otros 100 mapas y 6.000 tiradas en el servidor. Las pruebas cubren ambos propietarios, casillas neutrales, los doce rendimientos, el 7, compras, mejoras, recursos insuficientes, refuerzos, movimiento y victoria por conquista o por puntos.
+- Dos ejecutables de revisión de Unity completaron una partida mediante una invitación al servidor del paquete en el mismo ordenador. Tras 60 turnos, los dos clientes mostraron empate a 42. La prueba de la API rechazó los turnos fuera de orden y las peticiones repetidas. Falta una prueba entre dos ordenadores físicos.
+- Se inspeccionaron el tablero y el inspector a 1280 × 720 y 1024 × 768. Las capturas de los niveles muestran el mismo cuartel. Para fotografiar N3, la partida de revisión recibe el oro necesario después de fotografiar N2. Las pruebas de reglas comprueban los costes sin esa ayuda.
+
+**Problema de equilibrio prioritario.** Se simularon 5.000 aperturas con las reglas del servidor. J1 recibe el refuerzo, recluta cuatro veces en la capital y ataca por la ruta (0,1), (1,1), (2,1), (3,1), (4,1), (4,2), repitiendo un combate mientras conserva al menos dos tropas. Ganó 4.234 veces antes del primer turno de J2 (84,7 %).
+
+**Correcciones aplicadas (v1.2.0):**
+
+- Se añadió `AttackReadyTurn`: un territorio recién comprado o conquistado no puede lanzar ataques hasta dos turnos después. Esto impide el rush en cadena.
+- Se repitió la prueba de 5.000 aperturas con la misma estrategia de reclutamiento y ruta directa. Resultado: **0 victorias de J1 en la apertura (0,0 %)**, frente al 84,7 % anterior. La restricción bloquea eficazmente la cadena de ataques inmediatos.
+- Los cuarteles iniciales de cada capital reciben números de producción simétricos (5 y 9, o 9 y 5), equilibrando el acceso a la frecuencia de activación.
+- Se añadió una señal visual (banderín dorado) para distinguir el nivel 3 desde el tablero y el inspector, sin necesidad de seleccionar la casilla.
+- La interfaz del inspector muestra la producción real según el nivel y los costes de mejora escalonados (N2: 5 oro + 2 mat.; N3: 7 oro + 3 mat.).

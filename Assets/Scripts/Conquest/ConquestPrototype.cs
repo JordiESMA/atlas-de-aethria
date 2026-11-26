@@ -75,19 +75,19 @@ namespace AuteTurno.Conquest
         private IEnumerator StartHostAndCreateRoom()
         {
             networkStatus = "Abriendo sala automáticamente…"; onlineMode = true; myPlayer = 0;
-            bool done = false, ready = false; string result = "";
-            yield return StartCoroutine(hostLauncher.EnsureRunning((ok, message) => { ready = ok; result = message; done = true; }));
-            while (!done) yield return null;
+            bool ready = false; string result = "El servicio de la sala no pudo iniciarse.";
+            yield return StartCoroutine(hostLauncher.EnsureRunning((ok, message) => { ready = ok; result = message; }));
             if (!ready) { roomBusy = false; onlineMode = false; networkStatus = result; yield break; }
             serverUrl = "http://127.0.0.1:3080";
-            shareAddress = "http://" + GetLanAddress() + ":3080";
+            string address = GetLanAddress();
+            shareAddress = address == null ? "" : "http://" + address + ":3080";
             network.BaseUrl = serverUrl; networkStatus = "Anfitrión listo · creando código de sala…";
             network.CreateRoom(string.IsNullOrWhiteSpace(names[0]) ? "Jugador azul" : names[0].Trim());
         }
 
         private void JoinOnlineRoom()
         {
-            if (joinCode.Trim().Length != 6) { networkStatus = "El código debe tener 6 caracteres."; return; }
+            if (!ValidRoomCode(joinCode)) { networkStatus = "El código debe tener 6 letras o números."; return; }
             if (!ValidServerUrl(serverUrl)) { networkStatus = "Escribe la dirección del anfitrión, por ejemplo http://192.168.1.25:3080"; return; }
             network.BaseUrl = serverUrl.Trim(); networkStatus = "Conectando a la sala…"; onlineMode = true; myPlayer = 1;
             roomBusy = true; network.JoinRoom(joinCode, string.IsNullOrWhiteSpace(names[0]) ? "Jugador" : names[0].Trim());
@@ -98,7 +98,8 @@ namespace AuteTurno.Conquest
             sendingAction = false;
             networkStatusIsError = !string.IsNullOrEmpty(error);
             if (networkStatusIsError) networkStatus = error;
-            roomBusy = false; if (state == null) return;
+            roomBusy = false;
+            if (state == null) { onlineMode = false; return; }
             Territory previousSelection = selected, previousTarget = target;
             myPlayer = state.yourPlayer; game = game ?? new ConquestGame(); game.ApplySnapshot(state);
             selected = previousSelection == null ? null : game.Board[previousSelection.X,previousSelection.Y];
@@ -121,16 +122,22 @@ namespace AuteTurno.Conquest
         private void LeaveOnlineRoom()
         {
             if (network != null) network.Disconnect();
-            onlineMode = false; sendingAction = false; networkStatusIsError = false; myPlayer = -1; networkStatus = ""; shownRollTurn = -1;
+            roomBusy = false; onlineMode = false; sendingAction = false; networkStatusIsError = false; myPlayer = -1; networkStatus = ""; shownRollTurn = -1;
         }
+        private static bool ValidRoomCode(string code)
+        { return code != null && code.Length == 6 && code.All(c => c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'); }
         private static bool ValidServerUrl(string value)
-        { Uri uri; return Uri.TryCreate((value ?? "").Trim(), UriKind.Absolute, out uri) && (uri.Scheme == "http" || uri.Scheme == "https") && !string.IsNullOrEmpty(uri.Host); }
+        {
+            return Uri.TryCreate((value ?? "").Trim(), UriKind.Absolute, out var uri)
+                && (uri.Scheme == "http" || uri.Scheme == "https") && !string.IsNullOrEmpty(uri.Host)
+                && uri.AbsolutePath == "/" && uri.Query.Length == 0 && uri.Fragment.Length == 0 && uri.UserInfo.Length == 0;
+        }
 
         private static bool TryReadInvite(string invite, out string address, out string code)
         {
             address = ""; code = "";
             Uri uri;
-            if (!Uri.TryCreate(invite, UriKind.Absolute, out uri)) return false;
+            if (!Uri.TryCreate(invite, UriKind.Absolute, out uri) || uri.Scheme != "aethria" || uri.Host != "join") return false;
             foreach (string part in uri.Query.TrimStart('?').Split('&'))
             {
                 string[] pair = part.Split(new[] { '=' }, 2);
@@ -140,7 +147,7 @@ namespace AuteTurno.Conquest
                 if (key == "address") address = value;
                 else if (key == "code") code = value.ToUpperInvariant();
             }
-            return ValidServerUrl(address) && code.Length == 6;
+            return ValidServerUrl(address) && ValidRoomCode(code);
         }
         private static string GetLanAddress()
         {
@@ -162,8 +169,13 @@ namespace AuteTurno.Conquest
                     if (address != null) return address.ToString();
                 }
             }
-            catch { return "IP_LOCAL_DEL_ANFITRION"; }
-            return "IP_LOCAL_DEL_ANFITRION";
+            catch (Exception e) { Debug.LogWarning("Atlas · adaptadores de red: " + e.GetType().Name); }
+            try
+            {
+                return Dns.GetHostAddresses(Dns.GetHostName()).FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork
+                    && !IPAddress.IsLoopback(a) && !a.ToString().StartsWith("169.254."))?.ToString();
+            }
+            catch (SocketException) { return null; }
         }
     }
 }

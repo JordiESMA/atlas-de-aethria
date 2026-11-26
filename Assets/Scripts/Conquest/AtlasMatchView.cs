@@ -27,14 +27,15 @@ namespace AuteTurno.Conquest
                 default: return "Pradera";
             }
         }
-        private static string Income(Territory z)
+        private static string Income(Territory z, int level)
         {
+            int amount = ConquestGame.Production(z.Land, level);
             switch(z.Land)
             {
-                case LandType.Farm: return "2 de comida";
-                case LandType.Mine: return "3 de oro";
-                case LandType.Factory: return "2 materiales";
-                case LandType.Barracks: return "1 tropa";
+                case LandType.Farm: return amount+" de comida";
+                case LandType.Mine: return amount+" de oro";
+                case LandType.Factory: return amount+" materiales";
+                case LandType.Barracks: return amount+" tropas";
                 default: return "";
             }
         }
@@ -126,7 +127,8 @@ namespace AuteTurno.Conquest
         }
         private void DrawDomain(Rect r,Territory z)
         {
-            bool active=!game.AwaitingRoll && game.DiceTotal!=7 && z.ProductionNumber>0 && z.ProductionNumber==game.DiceTotal;
+            bool active=!game.AwaitingRoll && (z.IsCapital ? z.Owner==game.ActivePlayer :
+                game.DiceTotal!=7 && z.ProductionNumber>0 && z.ProductionNumber==game.DiceTotal);
             Color rim=z.Owner<0?C(0x827b57):z.Owner==0?C(0x5bb5ff):C(0xf66f64);
             if(active) rim=C(0xffcf51);
             Fill(R(r.x+1,r.y+3,r.width,r.height),C(0x463d29));
@@ -152,6 +154,7 @@ namespace AuteTurno.Conquest
             }
             if(z.Owner>=0)
             {
+                if(z.Level==ConquestGame.MaxLevel && !z.IsCapital) DrawPennant(r.x+12,r.y+30);
                 Emblem(R(r.xMax-47,r.y+3,44,41),z.Owner,"N"+z.Level);
                 Rect army=R(r.x+4,r.y+4,40,21);
                 Fill(army,Alpha(Night,.94f)); Label(army,"T "+z.Troops,13,Ivory,false,true,Center);
@@ -159,6 +162,14 @@ namespace AuteTurno.Conquest
             Rect plate=R(r.center.x-(z.IsCapital?44:23),r.yMax-27,z.IsCapital?88:46,25);
             Tint(plate,medallion,Ink); Tint(Inside(plate,2),medallion,active?Honey:Paper);
             Label(plate,z.IsCapital?"CAPITAL":z.ProductionNumber.ToString(),z.IsCapital?13:19,Ink,!z.IsCapital,true,Center);
+        }
+        private void DrawPennant(float x,float y)
+        {
+            Fill(R(x-1,y-3,5,34),Ink);
+            Fill(R(x,y-2,2,31),Honey);
+            Tint(R(x+2,y,27,16),pennant,Ink);
+            Tint(R(x+3,y+1,24,13),pennant,C(0xf6c256));
+            Fill(R(x+7,y+1,3,13),Ivory);
         }
         private void Inspector()
         {
@@ -169,13 +180,17 @@ namespace AuteTurno.Conquest
             var picture=R(925,191,322,122);
             Fill(picture,Brass);
             if(z==null) GUI.DrawTexture(Inside(picture,2),cover,ScaleMode.ScaleAndCrop);
-            else Art(Inside(picture,2),Illustration(z),true);
+            else
+            {
+                Art(Inside(picture,2),Illustration(z),true);
+                if(z.Owner>=0 && z.Level==ConquestGame.MaxLevel && !z.IsCapital) DrawPennant(picture.x+16,picture.y+15);
+            }
             if(z==null)
             {
                 Label(R(926,326,322,44),game.AwaitingRoll?"Tu primera tirada":"Elige un territorio",24,Ink,true,true);
-                Label(R(926,372,321,75),game.AwaitingRoll?"Pulsa Tirar dados. La suma activa los edificios que coinciden en ambos reinos.":"Selecciona una casilla de tu reino y después una vecina para ver las acciones posibles.",18,Ink);
+                Label(R(926,372,321,75),game.AwaitingRoll?"Tira los dados. Tu capital gana 1 tropa y los terrenos propios de ambos reinos producen con su número.":"Selecciona una casilla de tu reino y después una vecina para ver las acciones posibles.",18,Ink);
                 Fill(R(926,464,318,1),Brass);
-                Label(R(926,480,320,118),"Cartela · número de producción\nEscudo N1 / N2 · nivel del territorio\nT · tropas en la casilla\nBorde dorado · coincide con la tirada",16,Sepia);
+                Label(R(926,480,320,118),"Cartela · número de producción\nEscudo N1 / N2 / N3 · nivel\nT · tropas en la casilla\nOro · número activado o capital reforzada",16,Sepia);
                 return;
             }
             Color band=z.Owner<0?C(0x495848):Team(z.Owner);
@@ -184,8 +199,10 @@ namespace AuteTurno.Conquest
             Label(R(932,323,306,35),owner,16,Ivory,false,true,Center);
             string garrison=z.Troops==1?"1 tropa":z.Troops+" tropas";
             Label(R(926,369,322,32),garrison+(z.IsCapital?"   ·   Sede del reino":"   ·   Tirada "+z.ProductionNumber),19,Ink,true,true);
-            string yield=z.IsCapital?"Puedes entrenar tropas aquí.":(z.HasBuilding?"Produce ":"Al construir, produce ")+Income(z)+".";
-            Label(R(926,401,320,41),yield,16,Sepia);
+            string income = z.IsCapital ? "+1 tropa en cada tirada de su dueño."
+                : z.Owner < 0 ? "Al reclamarla, produce "+Income(z,1)+"."
+                : "Produce "+Income(z,z.Level)+" con un "+z.ProductionNumber+".";
+            Label(R(926,400,320,42),income,16,Sepia);
             bool available=CanAct && selected.Owner==game.ActivePlayer;
             if(target!=null)
             {
@@ -194,23 +211,25 @@ namespace AuteTurno.Conquest
                 else
                 {
                     if(target.Owner<0 && Button(R(926,449,320,42),"Comprar   ·   5 oro",true,available && game.Players[game.ActivePlayer].Gold>=5)) DoAction("buy");
-                    if(target!=null && Button(R(926,500,320,42),"Atacar",false,available && selected.Troops>=2)) DoAction("attack");
+                    bool preparing=selected.AttackReadyTurn>game.CompletedTurns;
+                    if(target!=null && Button(R(926,500,320,42),preparing?"Ataca en tu próximo turno":"Atacar",false,available && !preparing && selected.Troops>=2)) DoAction("attack");
                 }
                 if(Button(R(926,560,320,41),"Cancelar destino")) target=null;
             }
             else if(z.Owner==game.ActivePlayer && MyTurn)
             {
                 var p=game.Players[game.ActivePlayer];
-                if(!z.HasBuilding && Button(R(926,449,320,50),"Construir   ·   5 oro + 2 mat.",true,available && p.Gold>=5 && p.Materials>=2)) DoAction("build");
-                if((z.IsCapital || (z.HasBuilding && z.Land==LandType.Barracks)) &&
-                    Button(R(926,509,320,43),"Entrenar   ·   2 oro + 2 comida",false,available && p.Gold>=2 && p.Food>=2)) DoAction("recruit");
-                if(z.HasBuilding && !z.IsCapital && z.Land!=LandType.Barracks)
+                if(!z.IsCapital && z.Level<ConquestGame.MaxLevel)
                 {
-                    Fill(R(926,464,320,1),Brass);
-                    Label(R(926,479,320,29),"Desarrollo completo",19,Ink,true,true);
-                    Label(R(926,514,320,40),"Este edificio produce con un "+z.ProductionNumber+" de cualquiera de los dos reinos.",16,Sepia);
+                    int gold=ConquestGame.UpgradeGold(z.Level), mat=ConquestGame.UpgradeMaterials(z.Level);
+                    Label(R(926,439,320,26),"N"+(z.Level+1)+" producirá "+Income(z,z.Level+1)+".",15,Sepia);
+                    if(Button(R(926,469,320,40),"Mejorar a N"+(z.Level+1)+" · "+gold+" oro + "+mat+" mat.",true,available && p.Gold>=gold && p.Materials>=mat)) DoAction("build");
                 }
-                Label(R(926,567,320,44),"Elige una vecina para mover, comprar o atacar.",15,Sepia);
+                if((z.IsCapital || (z.HasBuilding && z.Land==LandType.Barracks)) &&
+                    Button(R(926,516,320,43),"Entrenar   ·   2 oro + 2 comida",false,available && p.Gold>=2 && p.Food>=2)) DoAction("recruit");
+                if(!z.IsCapital && z.Level==ConquestGame.MaxLevel)
+                    Label(R(926,449,320,44),"Nivel máximo alcanzado",19,Ink,true,true);
+                Label(R(926,567,320,44),z.AttackReadyTurn>game.CompletedTurns?"Recién adquirido. Podrá atacar en tu próximo turno.":"Elige una vecina para mover, comprar o atacar.",15,Sepia);
             }
             else Label(R(926,458,320,80),MyTurn?"Para actuar aquí, selecciona primero un territorio propio vecino.":"Puedes inspeccionar la isla mientras juega el rival.",18,Ink);
         }

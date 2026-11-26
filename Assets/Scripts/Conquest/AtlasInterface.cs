@@ -9,7 +9,7 @@ namespace AuteTurno.Conquest
         private static readonly Color Night = C(0x101e29), Navy = C(0x1b3040), Brass = C(0xc49b60),
             Honey = C(0xf1d49e), Ivory = C(0xfff6dc), Mist = C(0xc2ced0), Ink = C(0x262b27),
             Paper = C(0xf1e5c9), Sepia = C(0x61563e), Azure = C(0x245580), Crimson = C(0x853f43);
-        private Texture2D cover, domains, coast, shield, medallion, pip, shade;
+        private Texture2D cover, domains, coast, shield, medallion, pip, shade, pennant;
         private Font displayFont, bodyFont;
         private GUIStyle inputStyle;
         private readonly Dictionary<(int, bool, bool, TextAnchor), GUIStyle> type = new Dictionary<(int, bool, bool, TextAnchor), GUIStyle>();
@@ -32,6 +32,7 @@ namespace AuteTurno.Conquest
             displayFont = Font.CreateDynamicFontFromOSFont(new[]{"Georgia","Cambria","Times New Roman"},40);
             bodyFont = Font.CreateDynamicFontFromOSFont(new[]{"Segoe UI","Arial"},20);
             pip = Mask(64,(x,y)=> x*x+y*y < .9f);
+            pennant = Mask(64,(x,y)=>x < .45f + .55f*Mathf.Abs(y));
             shield = Mask(96,(x,y)=> Mathf.Abs(x)<.91f && y<.91f && y>-.93f+Mathf.Pow(Mathf.Abs(x),1.6f)*.55f);
             medallion = Mask(96,(x,y)=> Mathf.Abs(x)+.22f*Mathf.Abs(y)<1.03f && Mathf.Abs(y)<.94f);
             shade = new Texture2D(128,1,TextureFormat.RGBA32,false) {wrapMode=TextureWrapMode.Clamp};
@@ -141,9 +142,9 @@ namespace AuteTurno.Conquest
             Fill(R(50,394,1180,253),Alpha(Night,.96f));
             Fill(R(50,394,1180,2),Brass);
             Label(R(72,407,700,41),"Cómo jugar",31,Honey,true);
-            GuideStep(72,"I","Lanza los dados","La suma activa los edificios de ambos reinos que tienen ese número. Con un 7 nadie produce.");
-            GuideStep(466,"II","Haz crecer tu reino","Compra una casilla vecina por 5 de oro. Construir por 5 de oro y 2 materiales la sube al nivel 2.");
-            GuideStep(859,"III","Cede el turno","Puedes seguir comprando, construyendo o moviendo tropas. Pulsa Terminar turno cuando hayas acabado.");
+            GuideStep(72,"I","Lanza los dados","Tu capital gana 1 tropa, incluso con un 7. Los terrenos de ambos reinos producen si sale su número.");
+            GuideStep(466,"II","Haz crecer tu reino","Compra por 5 de oro. El terreno produce desde nivel 1. Cada mejora añade una unidad, hasta nivel 3.");
+            GuideStep(859,"III","Prepara el avance","Un terreno nuevo puede atacar en tu próximo turno. Sigue jugando o pulsa Terminar turno.");
             if(Button(R(924,648,306,51),"Preparar partida   ›",true)) screen=AppScreen.Menu;
         }
         private void GuideStep(int x,string index,string title,string desc)
@@ -207,7 +208,12 @@ namespace AuteTurno.Conquest
                 if(Button(R(82,470,589,58),"Iniciar sala",true,!roomBusy)) {inviteCopied=false; CreateOnlineRoom();}
             }
             Label(R(82,576,585,60),networkStatus,16,Honey);
-            if(Button(R(50,664,187,40),"Volver al menú",false,!roomBusy)) screen=AppScreen.Menu;
+            if(joining && roomBusy)
+            {
+                if(Button(R(50,664,241,40),"Cancelar conexión"))
+                { LeaveOnlineRoom(); networkStatus="Conexión cancelada."; }
+            }
+            else if(Button(R(50,664,187,40),"Volver al menú",false,!roomBusy)) screen=AppScreen.Menu;
         }
         private void LobbyView()
         {
@@ -218,7 +224,9 @@ namespace AuteTurno.Conquest
             Label(R(80,220,607,94),lobbyCode,62,Ivory,true,true);
             Label(R(82,328,595,30),"Dirección que se incluirá en la invitación",17,Mist);
             shareAddress=Field(R(82,368,604,50),"share",shareAddress,100);
-            Label(R(82,428,604,66),"En la misma Wi-Fi se usa la dirección local. Desde otra red, el anfitrión necesita una dirección pública y el puerto TCP 3080 accesible.",17,Mist);
+            Label(R(82,428,604,66),string.IsNullOrWhiteSpace(shareAddress)
+                ? "No se detectó la dirección local. Escribe http:// seguido de la IPv4 del anfitrión y :3080 para compartir la sala."
+                : "En la misma Wi-Fi se usa la dirección local. Desde otra red, el anfitrión necesita una dirección pública y el puerto TCP 3080 accesible.",17,Mist);
             if(Button(R(82,506,604,55),"Copiar enlace para invitar",true))
             {
                 if(ValidServerUrl(shareAddress)){

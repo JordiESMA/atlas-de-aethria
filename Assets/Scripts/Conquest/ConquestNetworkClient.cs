@@ -1,12 +1,12 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace AuteTurno.Conquest
 {
-    /// <summary>HTTP long-poll client for temporary, code-based game rooms.</summary>
     public sealed class ConquestNetworkClient : MonoBehaviour
     {
         public string BaseUrl = "http://127.0.0.1:3080";
@@ -15,103 +15,140 @@ namespace AuteTurno.Conquest
         public RemoteGameState State { get; private set; }
         public bool Connected { get; private set; }
         public Action<RemoteGameState, string> OnState;
-        private Coroutine pollLoop;
+
+        private const int RoomTimeout = 8;
+        private const string Unreachable = "El anfitrión no responde. Comprueba que la sala siga abierta y que ambos estéis en la misma red privada.";
+        private readonly HashSet<UnityWebRequest> pending = new HashSet<UnityWebRequest>();
+        private int session;
+        private string lastJoinUrl, joinAttempt;
 
         public void CreateRoom(string playerName)
-        { StartCoroutine(RoomRequest("/api/rooms", new RoomInput { name = playerName }, false)); }
+        {
+            Disconnect();
+            OpenRoom("/api/rooms", new RoomInput { name = playerName });
+        }
 
         public void JoinRoom(string code, string playerName)
-        { RoomCode = (code ?? "").Trim().ToUpperInvariant(); StartCoroutine(RoomRequest("/api/rooms/" + UnityWebRequest.EscapeURL(RoomCode) + "/join", new RoomInput { name = playerName }, true)); }
+        {
+            Disconnect();
+            RoomCode = (code ?? "").Trim().ToUpperInvariant();
+            string path = "/api/rooms/" + UnityWebRequest.EscapeURL(RoomCode) + "/join";
+            string url = BaseUrl.TrimEnd('/') + path;
+            if (url != lastJoinUrl)
+            {
+                lastJoinUrl = url;
+                joinAttempt = Guid.NewGuid().ToString("N");
+            }
+            OpenRoom(path, new RoomInput { name = playerName, joinAttempt = joinAttempt });
+        }
+
+        private void OpenRoom(string path, RoomInput input)
+        {
+            StartCoroutine(Request(path, JsonUtility.ToJson(input), RoomTimeout, (reply, error) =>
+            {
+                if (error != null || string.IsNullOrEmpty(reply?.token))
+                {
+                    string message = error ?? "La respuesta del anfitrión no incluye el acceso a la sala.";
+                    Debug.LogWarning("Atlas · sala: " + message);
+                    OnState?.Invoke(null, message);
+                    return;
+                }
+                Token = reply.token;
+                State = reply.state;
+                RoomCode = State.code;
+                Connected = true;
+                lastJoinUrl = null;
+                Debug.Log("Atlas · sala: " + State.status + " · J" + (State.yourPlayer + 1));
+                OnState?.Invoke(State, "");
+                StartCoroutine(PollLoop(session));
+            }));
+        }
 
         public void SendAction(string action, int x = -1, int y = -1, int toX = -1, int toY = -1)
         {
             if (!Connected || State == null) { OnState?.Invoke(State, "Conéctate a una sala antes de jugar."); return; }
             var body = new RemoteActionRequest { token = Token, action = action, x = x, y = y, toX = toX, toY = toY, expectedVersion = State.version };
-            StartCoroutine(PostAction(body));
+            StartCoroutine(Request("/api/rooms/" + RoomCode + "/actions", JsonUtility.ToJson(body), RoomTimeout, ApplyReply));
         }
 
         public void Disconnect()
         {
+            ++session;
+            foreach (var request in pending) request.Abort();
             Connected = false;
-            if (pollLoop != null) { StopCoroutine(pollLoop); pollLoop = null; }
-            RoomCode = null; Token = null; State = null;
+            RoomCode = null;
+            Token = null;
+            State = null;
         }
 
-        private IEnumerator RoomRequest(string path, RoomInput input, bool joining)
+        private void ApplyReply(RemoteGameEnvelope reply, string error)
         {
-            Connected = false;
-            string url = CleanBaseUrl() + path;
-            using (var request = CreatePost(url, JsonUtility.ToJson(input)))
-            {
-                yield return request.SendWebRequest();
-                RemoteGameEnvelope envelope = Parse(request.downloadHandler.text);
-                if (request.result != UnityWebRequest.Result.Success || envelope == null || envelope.state == null || string.IsNullOrEmpty(envelope.token))
-                { OnState?.Invoke(State, ErrorText(request, envelope)); yield break; }
-                Token = envelope.token; State = envelope.state; RoomCode = envelope.state.code; Connected = true;
-                OnState?.Invoke(State, "");
-                if (pollLoop != null) StopCoroutine(pollLoop);
-                pollLoop = StartCoroutine(PollLoop());
-            }
+            if (reply?.state != null && reply.state.version >= State.version) State = reply.state;
+            OnState?.Invoke(State, error ?? "");
         }
 
-        private IEnumerator PostAction(RemoteActionRequest body)
+        private IEnumerator PollLoop(int activeSession)
         {
-            using (var request = CreatePost(CleanBaseUrl() + "/api/rooms/" + UnityWebRequest.EscapeURL(RoomCode) + "/actions", JsonUtility.ToJson(body)))
+            while (activeSession == session && Connected && !State.finished)
             {
-                yield return request.SendWebRequest();
-                RemoteGameEnvelope envelope = Parse(request.downloadHandler.text);
-                if (envelope != null && envelope.state != null) { State = envelope.state; OnState?.Invoke(State, envelope.error ?? ""); }
-                else OnState?.Invoke(State, ErrorText(request, envelope));
-            }
-        }
-
-        private IEnumerator PollLoop()
-        {
-            while (Connected && State != null && !State.finished)
-            {
-                string url = CleanBaseUrl() + "/api/rooms/" + UnityWebRequest.EscapeURL(RoomCode)
-                    + "?token=" + UnityWebRequest.EscapeURL(Token) + "&after=" + State.version + "&wait=1";
-                using (var request = UnityWebRequest.Get(url))
+                string path = "/api/rooms/" + RoomCode + "?token=" + UnityWebRequest.EscapeURL(Token) + "&after=" + State.version + "&wait=1";
+                bool failed = false;
+                yield return Request(path, null, 30, (reply, error) =>
                 {
-                    request.timeout = 30;
-                    yield return request.SendWebRequest();
-                    if (!Connected) yield break;
-                    RemoteStateEnvelope envelope = null;
-                    try { envelope = JsonUtility.FromJson<RemoteStateEnvelope>(request.downloadHandler.text); } catch { }
-                    if (request.result == UnityWebRequest.Result.Success && envelope != null && envelope.state != null)
-                    {
-                        State = envelope.state; OnState?.Invoke(State, "");
-                    }
-                    else OnState?.Invoke(State, ErrorText(request, envelope));
-                }
-                if (!Connected || State == null || State.finished) yield break;
+                    failed = error != null;
+                    ApplyReply(reply, error);
+                });
+                if (failed) yield return new WaitForSecondsRealtime(2);
             }
         }
 
-        private UnityWebRequest CreatePost(string url, string json)
+        private IEnumerator Request(string path, string json, int timeout, Action<RemoteGameEnvelope, string> completed)
         {
-            var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST);
-            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
-            request.downloadHandler = new DownloadHandlerBuffer(); request.timeout = 30;
-            request.SetRequestHeader("Content-Type", "application/json");
-            return request;
+            int activeSession = session;
+            UnityWebRequest request = null;
+            UnityWebRequestAsyncOperation operation = null;
+            string error = null;
+            try
+            {
+                string url = BaseUrl.TrimEnd('/') + path;
+                request = UnityWebRequest.Get(url);
+                if (json != null)
+                {
+                    request.method = UnityWebRequest.kHttpVerbPOST;
+                    request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+                    request.SetRequestHeader("Content-Type", "application/json");
+                }
+                request.timeout = timeout;
+                operation = request.SendWebRequest();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Atlas · no se pudo iniciar la conexión (" + e.GetType().Name + ").");
+                error = "El juego no pudo abrir la conexión. Revisa el enlace y la versión instalada.";
+            }
+            using (request)
+            {
+                RemoteGameEnvelope reply = null;
+                if (operation != null)
+                {
+                    pending.Add(request);
+                    yield return operation;
+                    pending.Remove(request);
+                    if (activeSession != session) yield break;
+                    if (request.responseCode > 0)
+                    {
+                        try { reply = JsonUtility.FromJson<RemoteGameEnvelope>(request.downloadHandler.text); }
+                        catch (ArgumentException) { }
+                    }
+                    if (request.result == UnityWebRequest.Result.ConnectionError) error = Unreachable;
+                    else if (!string.IsNullOrEmpty(reply?.error)) error = reply.error;
+                    else if (request.result != UnityWebRequest.Result.Success || reply?.state == null)
+                        error = "La dirección respondió, pero no devolvió una partida válida. Pide un enlace nuevo.";
+                }
+                if (activeSession == session) completed(reply, error);
+            }
         }
 
-        private string CleanBaseUrl() => (BaseUrl ?? "").Trim().TrimEnd('/');
-        private static RemoteGameEnvelope Parse(string json)
-        { try { return JsonUtility.FromJson<RemoteGameEnvelope>(json); } catch { return null; } }
-        private static string ErrorText(UnityWebRequest request, RemoteGameEnvelope envelope)
-        {
-            if (envelope != null && !string.IsNullOrEmpty(envelope.error)) return envelope.error;
-            return request.result == UnityWebRequest.Result.Success ? "El servidor devolvió una respuesta incompleta." : "No se pudo conectar con " + request.url + " (" + request.error + ").";
-        }
-        private static string ErrorText(UnityWebRequest request, RemoteStateEnvelope envelope)
-        {
-            if (envelope != null && !string.IsNullOrEmpty(envelope.error)) return envelope.error;
-            return ErrorText(request, (RemoteGameEnvelope)null);
-        }
-
-        [Serializable] private sealed class RoomInput { public string name; }
-        [Serializable] private sealed class RemoteStateEnvelope { public RemoteGameState state; public string error; }
+        [Serializable] private sealed class RoomInput { public string name, joinAttempt; }
     }
 }

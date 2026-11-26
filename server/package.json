@@ -1,8 +1,8 @@
 {
   "name": "islas-en-disputa-server",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Servidor temporal de salas para Islas en disputa",
-  "scripts": { "start": "node index.js" },
+  "scripts": { "start": "node index.js", "test": "node --test tests/production.test.js" },
   "engines": { "node": ">=18" }
 }
